@@ -124,6 +124,7 @@ impl Weirpack {
     pub fn from_bytes(bytes: &[u8]) -> Result<Self, Error> {
         let cursor = std::io::Cursor::new(bytes);
         let mut archive = ZipArchive::new(cursor)?;
+        archive.validate_header_consistency()?;
 
         let mut manifest = None;
         let mut rules = HashMap::new();
@@ -136,7 +137,7 @@ impl Weirpack {
                 continue;
             }
 
-            let name = file.name().to_string();
+            let name = file.name()?.into_owned();
             if name == "manifest.json" {
                 if manifest.is_some() {
                     return Err(Error::DuplicateManifest("manifest.json"));
@@ -219,7 +220,28 @@ impl Weirpack {
 
 #[cfg(test)]
 mod tests {
-    use super::{Weirpack, WeirpackManifest};
+    use super::{Error, Weirpack, WeirpackManifest};
+
+    #[test]
+    fn rejects_conflicting_zip_headers() {
+        let manifest = WeirpackManifest::from_reader(
+            br#"{"author":"Test","version":"1.0","description":"Security regression","license":"MIT"}"#
+                .as_slice(),
+        )
+        .expect("valid manifest");
+        let mut pack = Weirpack::new(manifest);
+        pack.add_rule("ExampleRule", "expr main test");
+        let mut bytes = pack.to_bytes().expect("serialize archive");
+        let parsed = Weirpack::from_bytes(&bytes).expect("read valid archive");
+        assert_eq!(parsed.rules.get("ExampleRule").unwrap(), "expr main test");
+
+        assert_eq!(&bytes[..4], b"PK\x03\x04");
+        assert_eq!(&bytes[30..43], b"manifest.json");
+        // Change only the local header; the central directory still names manifest.json.
+        bytes[30..43].copy_from_slice(b"conflict.json");
+        let result = Weirpack::from_bytes(&bytes);
+        assert!(matches!(&result, Err(Error::Zip(_))), "{result:?}");
+    }
 
     #[test]
     fn round_trip_weirpack_bytes() {
