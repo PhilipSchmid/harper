@@ -1,23 +1,23 @@
 use crate::{UPOS, chunker::Chunker};
 #[cfg(feature = "training")]
-use burn::backend::Autodiff;
+use burn_autodiff::Autodiff;
 
-#[cfg(feature = "training")]
-use burn::nn::loss::{MseLoss, Reduction};
-use burn::nn::{Dropout, DropoutConfig};
-#[cfg(feature = "training")]
-use burn::optim::{GradientsParams, Optimizer};
 use burn::record::{FullPrecisionSettings, NamedMpkBytesRecorder, NamedMpkFileRecorder, Recorder};
 use burn::tensor::TensorData;
 #[cfg(feature = "training")]
 use burn::tensor::backend::AutodiffBackend;
+#[cfg(feature = "training")]
+use burn_nn::loss::{MseLoss, Reduction};
+use burn_nn::{Dropout, DropoutConfig};
+#[cfg(feature = "training")]
+use burn_optim::{GradientsParams, Optimizer};
 
 use burn::{
     module::Module,
-    nn::{BiLstmConfig, EmbeddingConfig, LinearConfig},
     tensor::{Int, Tensor, backend::Backend},
 };
 use burn_ndarray::{NdArray, NdArrayDevice};
+use burn_nn::{BiLstmConfig, EmbeddingConfig, LinearConfig};
 use hashbrown::HashMap;
 use std::path::Path;
 
@@ -25,10 +25,10 @@ const UNK_IDX: usize = 1;
 
 #[derive(Module, Debug)]
 struct NpModel<B: Backend> {
-    embedding_words: burn::nn::Embedding<B>,
-    embedding_upos: burn::nn::Embedding<B>,
-    lstm: burn::nn::BiLstm<B>,
-    linear_out: burn::nn::Linear<B>,
+    embedding_words: burn_nn::Embedding<B>,
+    embedding_upos: burn_nn::Embedding<B>,
+    lstm: burn_nn::BiLstm<B>,
+    linear_out: burn_nn::Linear<B>,
     dropout: Dropout,
 }
 
@@ -185,7 +185,7 @@ impl<B: Backend + AutodiffBackend> BurnChunker<B> {
         println!("Preparing model and training config...");
 
         let mut model = NpModel::<B>::new(vocab.len(), word_embed_dim, dropout, &device);
-        let opt_config = burn::optim::AdamConfig::new();
+        let opt_config = burn_optim::AdamConfig::new();
         let mut opt = opt_config.init();
 
         let util = BurnChunker {
@@ -344,7 +344,7 @@ impl<B: Backend + AutodiffBackend> BurnChunker<B> {
 }
 
 #[cfg(feature = "training")]
-pub type BurnChunkerCpu = BurnChunker<burn::backend::Autodiff<NdArray>>;
+pub type BurnChunkerCpu = BurnChunker<burn_autodiff::Autodiff<NdArray>>;
 
 #[cfg(not(feature = "training"))]
 pub type BurnChunkerCpu = BurnChunker<NdArray>;

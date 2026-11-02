@@ -124,6 +124,7 @@ impl Weirpack {
     pub fn from_bytes(bytes: &[u8]) -> Result<Self, Error> {
         let cursor = std::io::Cursor::new(bytes);
         let mut archive = ZipArchive::new(cursor)?;
+        archive.validate_header_consistency()?;
 
         let mut manifest = None;
         let mut rules = HashMap::new();
@@ -136,7 +137,7 @@ impl Weirpack {
                 continue;
             }
 
-            let name = file.name().to_string();
+            let name = file.name()?.into_owned();
             if name == "manifest.json" {
                 if manifest.is_some() {
                     return Err(Error::DuplicateManifest("manifest.json"));
